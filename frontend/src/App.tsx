@@ -11,6 +11,8 @@ import {
 import {
   FALLBACK_RESTAURANTS,
   FALLBACK_MENU_ITEMS,
+  CURATED_COLLECTIONS,
+  CONNOISSEUR_REVIEWS,
   type FallbackRestaurant,
   type FallbackMenuItem
 } from './fallbackData.js';
@@ -634,6 +636,10 @@ export function App() {
 
   return (
     <div className="app-container">
+      {/* Ambient Glow Orbs */}
+      <div className="ambient-glow-orb-1" aria-hidden="true" />
+      <div className="ambient-glow-orb-2" aria-hidden="true" />
+
       {/* Pure JS Confetti Canvas */}
       <canvas id="confetti-canvas" className="confetti-canvas" />
 
@@ -918,6 +924,41 @@ export function App() {
                 ))}
               </div>
 
+              {/* Curated Culinary Flights */}
+              <section style={{ marginTop: '1.25rem' }}>
+                <div className="section-headline">
+                  <div>
+                    <h3>Curated Culinary Flights</h3>
+                    <span className="sub-tag">Thematic gastronomic journeys hand-selected by our head culinarians</span>
+                  </div>
+                  <span className="sub-tag" style={{ color: 'var(--color-ember)', fontWeight: 800 }}>
+                    ✦ Tasting Menu
+                  </span>
+                </div>
+                <div className="curated-collections-grid">
+                  {CURATED_COLLECTIONS.map((c) => (
+                    <article
+                      key={c.id}
+                      className="curated-collection-card"
+                      onClick={() => {
+                        const targetKitchen = restaurants.find((r) => r.id === c.kitchenId) || restaurants[0];
+                        if (targetKitchen) {
+                          openRestaurantMenu(targetKitchen);
+                        }
+                      }}
+                    >
+                      <img src={c.imageUrl} alt={c.title} className="curated-bg-img" loading="lazy" />
+                      <div className="curated-gradient-overlay" />
+                      <div className="curated-content">
+                        <span className="curated-tag">{c.tag}</span>
+                        <h4 className="curated-title">{c.title}</h4>
+                        <p className="curated-sub">{c.subtitle}</p>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </section>
+
               {/* Partner Cloud Kitchens Grid */}
               <section>
                 <div className="section-headline">
@@ -1030,6 +1071,64 @@ export function App() {
                       </div>
                     );
                   })}
+                </div>
+              </section>
+
+              {/* How Tuckin Cloud Works - Engineering Bento Grid */}
+              <section style={{ marginTop: '2.5rem' }}>
+                <div className="section-headline">
+                  <div>
+                    <h3>Engineered for Supreme Precision</h3>
+                    <span className="sub-tag">The next-generation distributed food delivery telemetry stack</span>
+                  </div>
+                  <span className="sub-tag" style={{ fontFamily: 'var(--font-mono)', color: '#38bdf8' }}>
+                    ⚡ Cloud SLA: 99.99%
+                  </span>
+                </div>
+                <div className="tech-bento-grid">
+                  <div className="tech-bento-card">
+                    <span className="tech-bento-icon">⚡</span>
+                    <h4>Sub-Millisecond Dispatch</h4>
+                    <p>Automated cloud kitchen order orchestration and route optimization calculates courier-to-pan handoff times in real-time.</p>
+                  </div>
+                  <div className="tech-bento-card">
+                    <span className="tech-bento-icon">🌡️</span>
+                    <h4>68.4°C Thermal Lock</h4>
+                    <p>Hermetically sealed custom aerogel delivery capsules ensure food hits your plate at the exact searing restaurant temperature.</p>
+                  </div>
+                  <div className="tech-bento-card">
+                    <span className="tech-bento-icon">🔋</span>
+                    <h4>100% Electric EV Fleet</h4>
+                    <p>Zero carbon emissions urban delivery pods navigating Bengaluru tech corridors with sub-20 minute doorstep SLAs.</p>
+                  </div>
+                </div>
+              </section>
+
+              {/* Connoisseur Reviews & Verified Feedback */}
+              <section style={{ marginTop: '2.5rem', marginBottom: '2rem' }}>
+                <div className="section-headline">
+                  <div>
+                    <h3>Connoisseur Chronicles</h3>
+                    <span className="sub-tag">What Bengaluru’s most discerning food enthusiasts say about Tuckin</span>
+                  </div>
+                  <span className="sub-tag" style={{ color: '#fbbf24', fontWeight: 800 }}>
+                    ★ 4.94 / 5.0 Rating
+                  </span>
+                </div>
+                <div className="reviews-grid">
+                  {CONNOISSEUR_REVIEWS.map((r) => (
+                    <div key={r.id} className="review-card">
+                      <div className="review-stars">{'★'.repeat(r.rating)}</div>
+                      <p className="review-quote">"{r.quote}"</p>
+                      <div className="review-footer">
+                        <div>
+                          <div className="review-author">{r.author}</div>
+                          <div className="review-location">📍 {r.location}</div>
+                        </div>
+                        <span className="review-dish">{r.dish}</span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </section>
             </div>
@@ -1973,6 +2072,65 @@ export function App() {
           </div>
         </div>
       )}
+
+      {/* Floating Dynamic Island Capsule */}
+      <aside className="dynamic-island" aria-label="Quick order telemetry">
+        <div className="island-left">
+          <span className="island-dot" />
+          <div className="island-text">
+            {totalCartCount > 0 ? (
+              <>
+                <strong>{totalCartCount} {totalCartCount === 1 ? 'Delicacy' : 'Delicacies'} in Feast Basket</strong>
+                <span> • {formatPaise(cartSubtotalPaise)}</span>
+              </>
+            ) : currentOrder && currentOrder.status !== 'DELIVERED' ? (
+              <>
+                <strong>Courier Vikram S. in Flight</strong>
+                <span> • Order #{currentOrder.id.slice(-6)} • {formattedCountdown}</span>
+              </>
+            ) : (
+              <>
+                <strong>{currentHub.name} Node Live</strong>
+                <span> • 18 min dispatch • Zero Delivery Surcharge</span>
+              </>
+            )}
+          </div>
+        </div>
+        <div>
+          {totalCartCount > 0 ? (
+            <button
+              className="island-action-btn"
+              onClick={() => {
+                setIsCartOpen(true);
+                playToggleSound();
+              }}
+            >
+              Checkout Feast →
+            </button>
+          ) : currentOrder && currentOrder.status !== 'DELIVERED' ? (
+            <button
+              className="island-action-btn"
+              onClick={() => {
+                setIsTrackingModalOpen(true);
+                playToggleSound();
+              }}
+            >
+              Live HUD →
+            </button>
+          ) : (
+            <button
+              className="island-action-btn"
+              onClick={() => {
+                const el = document.querySelector('.kitchens-grid');
+                if (el) el.scrollIntoView({ behavior: 'smooth' });
+                playToggleSound();
+              }}
+            >
+              Explore Menus →
+            </button>
+          )}
+        </div>
+      </aside>
     </div>
   );
 }

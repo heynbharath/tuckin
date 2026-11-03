@@ -1,47 +1,13 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "services": {
-    "frontend": {
-      "root": "frontend/"
-    },
-    "restaurant-service": {
-      "root": "services/restaurant-service/"
-    },
-    "order-service": {
-      "root": "services/order-service/"
-    },
-    "delivery-service": {
-      "root": "services/delivery-service/"
-    }
-  },
+  "framework": "vite",
+  "installCommand": "cd frontend && npm install",
+  "buildCommand": "cd frontend && npm run build",
+  "outputDirectory": "frontend/dist",
   "rewrites": [
     {
-      "source": "/api/restaurants",
-      "destination": { "service": "restaurant-service" }
-    },
-    {
-      "source": "/api/restaurants/:match*",
-      "destination": { "service": "restaurant-service" }
-    },
-    {
-      "source": "/api/menu-items/:match*",
-      "destination": { "service": "restaurant-service" }
-    },
-    {
-      "source": "/api/orders",
-      "destination": { "service": "order-service" }
-    },
-    {
-      "source": "/api/orders/:match*",
-      "destination": { "service": "order-service" }
-    },
-    {
-      "source": "/api/delivery/:match*",
-      "destination": { "service": "delivery-service" }
-    },
-    {
       "source": "/(.*)",
-      "destination": { "service": "frontend" }
+      "destination": "/index.html"
     }
   ]
 }
