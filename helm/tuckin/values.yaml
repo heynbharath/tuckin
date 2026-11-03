@@ -6,7 +6,7 @@ restaurantService:
   enabled: true
   replicaCount: 2
   image:
-    repository: ghcr.io/heynbharath/tucking/restaurant-service
+    repository: ghcr.io/heynbharath/tuckin/restaurant-service
     tag: latest
     pullPolicy: IfNotPresent
   service:
@@ -24,7 +24,7 @@ orderService:
   enabled: true
   replicaCount: 2
   image:
-    repository: ghcr.io/heynbharath/tucking/order-service
+    repository: ghcr.io/heynbharath/tuckin/order-service
     tag: latest
     pullPolicy: IfNotPresent
   service:
@@ -47,7 +47,7 @@ deliveryService:
   enabled: true
   replicaCount: 2
   image:
-    repository: ghcr.io/heynbharath/tucking/delivery-service
+    repository: ghcr.io/heynbharath/tuckin/delivery-service
     tag: latest
     pullPolicy: IfNotPresent
   service:
@@ -65,7 +65,7 @@ frontend:
   enabled: true
   replicaCount: 2
   image:
-    repository: ghcr.io/heynbharath/tucking/frontend
+    repository: ghcr.io/heynbharath/tuckin/frontend
     tag: latest
     pullPolicy: IfNotPresent
   service:
@@ -109,6 +109,6 @@ canary:
   weight: 20
   replicaCount: 1
   image:
-    repository: ghcr.io/heynbharath/tucking/delivery-service
+    repository: ghcr.io/heynbharath/tuckin/delivery-service
     tag: v0.2.0-canary
 

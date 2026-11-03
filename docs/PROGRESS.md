@@ -3,9 +3,9 @@
 Update this file at the end of every milestone.
 
 ## Current state
-- Repository initialized on `main` branch with remote `https://github.com/heynbharath/tucking.git`.
+- Repository configured on `main` branch with remote `https://github.com/heynbharath/tuckin.git`.
 - Project documentation, `AGENTS.md`, `.gitignore`, and `.editorconfig` established at repository root.
-- Ready for M1 (Service skeletons).
+- Milestones M0 through M11 fully implemented, validated, and hardened across services, frontend, containers, Kubernetes/Helm, CI/CD, observability, IaC, and load testing.
 
 ## Milestone log
 
@@ -23,3 +23,4 @@ Update this file at the end of every milestone.
 | M9 Observability and load test | Completed | Prometheus config, alert rules, Grafana dashboard, load test | Prometheus scrape configs & HighOrderFailureRate alerts, Grafana dashboard JSON, and automated peak-load test suite |
 | M10 Terraform and Ansible | Completed | `tofu fmt -check`, `tofu validate`, `ansible-playbook --syntax-check`, dry-run check | Terraform/OpenTofu modules with dev/staging/prod tfvars.example, Ansible delivery log retention playbook with dry-run and cron |
 | M11 Final evidence | Completed | Full test suite, lint, typecheck, builds, and load report | Validated all gates across M0-M11, zero secrets committed, full reproducible suite, populated LOAD_TEST_REPORT_TEMPLATE.md |
+| M12 Vercel multi-service deploy | Completed | `vercel.json`, serverless exports, `npm test`, `npm run build` | Added Vercel Services monorepo routing and serverless exports for full-stack one-click deployment |
