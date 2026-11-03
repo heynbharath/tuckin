@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import './App.css';
-import { formatPaise } from './utils.js';
+import { formatPaise, playAddSound, playSuccessSound } from './utils.js';
 import {
   FALLBACK_RESTAURANTS,
   FALLBACK_MENU_ITEMS,
@@ -38,6 +38,21 @@ interface DeliveryTracking {
   updatedAt: string;
 }
 
+interface HubLocation {
+  id: string;
+  name: string;
+  zone: string;
+  avgTime: string;
+  tag: string;
+}
+
+const HUBS: HubLocation[] = [
+  { id: 'indiranagar', name: 'Indiranagar Central', zone: 'zone-central-demo', avgTime: '18 mins', tag: 'Fastest' },
+  { id: 'koramangala', name: 'Koramangala 4th Block', zone: 'zone-south-demo', avgTime: '20 mins', tag: 'High Demand' },
+  { id: 'hsr', name: 'HSR Layout Sector 1', zone: 'zone-east-demo', avgTime: '22 mins', tag: 'Active Hub' },
+  { id: 'cbd', name: 'CBD / Lavelle Road', zone: 'zone-central-demo', avgTime: '16 mins', tag: 'Executive' }
+];
+
 const CUISINE_FILTERS = [
   { id: 'All', label: 'All Cuisines', emoji: '🌟' },
   { id: 'Biryani', label: 'Dum Biryani', emoji: '🍗' },
@@ -50,6 +65,7 @@ const CUISINE_FILTERS = [
 export function App() {
   const [viewMode, setViewMode] = useState<'customer' | 'operator'>('customer');
   const [activeView, setActiveView] = useState<'home' | 'restaurant-detail'>('home');
+  const [currentHub, setCurrentHub] = useState<HubLocation>(HUBS[0]);
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
@@ -57,22 +73,25 @@ export function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCuisine, setSelectedCuisine] = useState<string>('All');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [quickFilter, setQuickFilter] = useState<'all' | 'topRated' | 'fast' | 'veg'>('all');
 
   // Overlays
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isTrackingModalOpen, setIsTrackingModalOpen] = useState(false);
+  const [isHubModalOpen, setIsHubModalOpen] = useState(false);
 
   // Cart customization
   const [couponInput, setCouponInput] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
   const [selectedTipPaise, setSelectedTipPaise] = useState<number>(0);
+  const [deliveryInstruction, setDeliveryInstruction] = useState<string>('Leave at door');
   const [paymentMethod, setPaymentMethod] = useState<'upi' | 'card' | 'cod'>('upi');
 
   // Orders & Simulation
   const [currentOrder, setCurrentOrder] = useState<Order | null>(null);
   const [deliveryInfo, setDeliveryInfo] = useState<DeliveryTracking | null>(null);
   const [operatorOrders, setOperatorOrders] = useState<Order[]>([]);
-  const [countdownSeconds, setCountdownSeconds] = useState<number>(24 * 60);
+  const [countdownSeconds, setCountdownSeconds] = useState<number>(22 * 60);
 
   // Status & notifications
   const [loading, setLoading] = useState(true);
@@ -88,7 +107,7 @@ export function App() {
     setTimeout(() => setNotification(null), 3500);
   };
 
-  // Keyboard shortcut: Cmd+K / Ctrl+K to search
+  // Keyboard shortcut: Cmd+K / Ctrl+K to search; Esc to close overlays
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
@@ -98,13 +117,14 @@ export function App() {
       if (e.key === 'Escape') {
         setIsCartOpen(false);
         setIsTrackingModalOpen(false);
+        setIsHubModalOpen(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Confetti burst animation
+  // Canvas fireworks celebration burst
   const launchConfetti = () => {
     const canvas = document.getElementById('confetti-canvas') as HTMLCanvasElement | null;
     if (!canvas) return;
@@ -113,16 +133,16 @@ export function App() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
 
-    const colors = ['#ff5722', '#ff8a50', '#f59e0b', '#10b981', '#38bdf8', '#ffffff'];
-    const particles = Array.from({ length: 85 }, () => ({
+    const colors = ['#ff5722', '#ff8a50', '#f59e0b', '#10b981', '#38bdf8', '#8b5cf6', '#ffffff'];
+    const particles = Array.from({ length: 95 }, () => ({
       x: canvas.width / 2,
       y: canvas.height * 0.45,
-      vx: (Math.random() - 0.5) * 16,
-      vy: (Math.random() - 0.75) * 16,
+      vx: (Math.random() - 0.5) * 18,
+      vy: (Math.random() - 0.75) * 18,
       color: colors[Math.floor(Math.random() * colors.length)],
       size: Math.random() * 8 + 4,
       alpha: 1,
-      decay: Math.random() * 0.015 + 0.012,
+      decay: Math.random() * 0.015 + 0.01,
       rotation: Math.random() * 360,
       rotSpeed: (Math.random() - 0.5) * 10
     }));
@@ -133,7 +153,7 @@ export function App() {
       particles.forEach((p) => {
         p.x += p.vx;
         p.y += p.vy;
-        p.vy += 0.35;
+        p.vy += 0.35; // gravity
         p.alpha -= p.decay;
         p.rotation += p.rotSpeed;
         if (p.alpha > 0) {
@@ -156,7 +176,7 @@ export function App() {
     requestAnimationFrame(frame);
   };
 
-  // Load menu for a restaurant
+  // Load menu for a selected restaurant
   const selectRestaurant = useCallback((restaurant: Restaurant) => {
     setSelectedRestaurant(restaurant);
     setSelectedCategory('All');
@@ -177,7 +197,7 @@ export function App() {
       });
   }, []);
 
-  // Switch to restaurant detail
+  // Transition to restaurant detail
   const openRestaurantMenu = (restaurant: Restaurant) => {
     selectRestaurant(restaurant);
     setActiveView('restaurant-detail');
@@ -268,7 +288,7 @@ export function App() {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   }, [countdownSeconds]);
 
-  // Cart operations
+  // Cart operations with audio feedback
   const addToCart = (item: MenuItem, restaurant?: Restaurant) => {
     if (restaurant && selectedRestaurant?.id !== restaurant.id) {
       setSelectedRestaurant(restaurant);
@@ -278,6 +298,7 @@ export function App() {
       const count = existing ? existing.quantity + 1 : 1;
       return { ...prev, [item.id]: { item, quantity: count } };
     });
+    playAddSound();
     showToast(`Added ${item.name} to basket`);
   };
 
@@ -292,6 +313,7 @@ export function App() {
       }
       return { ...prev, [itemId]: { ...existing, quantity: existing.quantity - 1 } };
     });
+    playAddSound();
   };
 
   const totalCartCount = useMemo(() => {
@@ -352,7 +374,7 @@ export function App() {
         },
         body: JSON.stringify({
           restaurantId: activeRest.id,
-          deliveryZone: activeRest.deliveryZone,
+          deliveryZone: currentHub.zone,
           items: items.map(({ menuItemId, quantity }) => ({ menuItemId, quantity }))
         })
       });
@@ -371,8 +393,9 @@ export function App() {
           const delivData = await delivRes.json();
           setDeliveryInfo(delivData);
         }
-        showToast('🎉 Order placed! Courier simulation active.');
+        playSuccessSound();
         launchConfetti();
+        showToast('🎉 Order placed! Courier dispatch active.');
         setIsPlacingOrder(false);
         return;
       }
@@ -387,25 +410,26 @@ export function App() {
       status: 'PLACED',
       items,
       totalPaise: grandTotalPaise,
-      deliveryZone: activeRest.deliveryZone,
-      estimatedDeliveryMinutes: 24,
+      deliveryZone: currentHub.zone,
+      estimatedDeliveryMinutes: 22,
       createdAt: new Date().toISOString()
     };
     setCurrentOrder(mockOrder);
     setCart({});
     setIsCartOpen(false);
     setIsTrackingModalOpen(true);
-    setCountdownSeconds(24 * 60);
+    setCountdownSeconds(22 * 60);
     setDeliveryInfo({
       orderId: mockOrder.id,
       status: 'PLACED',
-      estimatedDeliveryMinutes: 24,
+      estimatedDeliveryMinutes: 22,
       simulated: true,
       updatedAt: new Date().toISOString()
     });
     setOperatorOrders((prev) => [mockOrder, ...prev]);
-    showToast('🎉 Order placed! Courier simulation active.');
+    playSuccessSound();
     launchConfetti();
+    showToast('🎉 Order placed! Live telemetry tracking activated.');
     setIsPlacingOrder(false);
   };
 
@@ -485,9 +509,14 @@ export function App() {
         rest.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         rest.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
         rest.cuisine.toLowerCase().includes(searchQuery.toLowerCase());
-      return matchesCuisine && matchesSearch;
+      
+      let matchesQuick = true;
+      if (quickFilter === 'topRated') matchesQuick = rest.rating >= 4.8;
+      if (quickFilter === 'fast') matchesQuick = rest.deliveryTime?.includes('18') || rest.deliveryTime?.includes('20') || false;
+
+      return matchesCuisine && matchesSearch && matchesQuick;
     });
-  }, [restaurants, selectedCuisine, searchQuery]);
+  }, [restaurants, selectedCuisine, searchQuery, quickFilter]);
 
   // Filtered dishes for Restaurant Detail
   const filteredDishes = useMemo(() => {
@@ -533,19 +562,19 @@ export function App() {
             color: '#ffffff',
             fontWeight: 800,
             fontSize: '0.9rem',
-            padding: '12px 22px',
+            padding: '12px 24px',
             borderRadius: '9999px',
-            boxShadow: '0 12px 30px rgba(255, 87, 34, 0.45)',
+            boxShadow: '0 14px 35px rgba(255, 87, 34, 0.5)',
             zIndex: 4000,
             animation: 'fadeIn 0.2s ease',
-            border: '1px solid rgba(255, 255, 255, 0.2)'
+            border: '1px solid rgba(255, 255, 255, 0.25)'
           }}
         >
           {notification}
         </div>
       )}
 
-      {/* Top Navigation */}
+      {/* Top Navigation Bar */}
       <header className="app-header">
         <div className="brand-section">
           <div
@@ -558,9 +587,13 @@ export function App() {
             <span className="logo-icon">🍛</span>
             <h1>Tuckin</h1>
           </div>
-          <div className="location-pill" title="Serving hyper-local cloud kitchens">
+          <div
+            className="location-pill"
+            title="Click to switch delivery cloud hub"
+            onClick={() => setIsHubModalOpen(true)}
+          >
             <span className="radar-dot" />
-            <span>Indiranagar Central • <strong>Live Hub</strong></span>
+            <span>{currentHub.name} • <strong>{currentHub.avgTime}</strong> ▾</span>
           </div>
         </div>
 
@@ -570,7 +603,7 @@ export function App() {
             <input
               ref={searchInputRef}
               type="text"
-              placeholder="Search dishes, biryani, burgers, artisan pizza..."
+              placeholder="Search master-chef dishes, biryani, burgers, artisan pizza..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -586,7 +619,7 @@ export function App() {
                 setViewMode('customer');
               }}
             >
-              🍽️ Food Menu
+              🍽️ Haute Menu
             </button>
             <button
               className={`mode-btn ${viewMode === 'operator' ? 'active' : ''}`}
@@ -603,9 +636,9 @@ export function App() {
             <button
               className="mode-btn"
               style={{
-                background: 'rgba(56, 189, 248, 0.15)',
+                background: 'rgba(56, 189, 248, 0.16)',
                 color: '#38bdf8',
-                border: '1px solid rgba(56, 189, 248, 0.4)',
+                border: '1px solid rgba(56, 189, 248, 0.45)',
                 fontWeight: 800
               }}
               onClick={() => setIsTrackingModalOpen(true)}
@@ -635,32 +668,32 @@ export function App() {
               {/* YC Launch Hero Header */}
               <div className="hero-wrapper" style={{ paddingLeft: 0, paddingRight: 0 }}>
                 <div className="hero-announcement">
-                  <span>⚡ NEXT-GEN HYPERLOCAL CLOUD KITCHEN • 18-MIN DISPATCH</span>
+                  <span>⚡ HYPERLOCAL CULINARY CLOUD • 18-MIN DISPATCH</span>
                 </div>
                 <div className="hero-main-title">
                   <div className="hero-text">
-                    <h2>Instant Culinary Cloud.</h2>
+                    <h2>Haute Cuisine, Fired On Demand.</h2>
                     <p>
-                      Chef-crafted gourmet meals, fired on-demand and dispatched at hyper-speed across
-                      Bengaluru. Zero compromises on taste.
+                      Curated master-chef cloud kitchens, algorithmic dispatch, and zero-compromise thermal precision.
+                      Handcrafted food delivered in under 20 minutes across Bengaluru.
                     </p>
                   </div>
                   <div className="telemetry-strip">
                     <div className="telemetry-item">
-                      <span className="telemetry-val">18m</span>
-                      <span className="telemetry-label">Avg Dispatch</span>
+                      <span className="telemetry-val">18.2m</span>
+                      <span className="telemetry-label">Doorstep Dispatch</span>
                     </div>
                     <div className="telemetry-item">
                       <span className="telemetry-val">28,490+</span>
-                      <span className="telemetry-label">Meals Cooked</span>
+                      <span className="telemetry-label">Orders Mastered</span>
                     </div>
                     <div className="telemetry-item">
-                      <span className="telemetry-val">4.92 ★</span>
-                      <span className="telemetry-label">App Rating</span>
+                      <span className="telemetry-val">4.94 ★</span>
+                      <span className="telemetry-label">Customer Rating</span>
                     </div>
                     <div className="telemetry-item">
                       <span className="telemetry-val">100%</span>
-                      <span className="telemetry-label">Fresh Fired</span>
+                      <span className="telemetry-label">Heat Insulated</span>
                     </div>
                   </div>
                 </div>
@@ -680,12 +713,40 @@ export function App() {
                 ))}
               </div>
 
+              {/* Quick Filter Bar */}
+              <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase' }}>
+                  Filter By:
+                </span>
+                {[
+                  { id: 'all', label: 'All Kitchens' },
+                  { id: 'topRated', label: '★ 4.8+ Top Rated' },
+                  { id: 'fast', label: '⚡ Under 25 Mins' }
+                ].map((f) => (
+                  <button
+                    key={f.id}
+                    className={`mode-btn ${quickFilter === f.id ? 'active' : ''}`}
+                    style={{
+                      background: quickFilter === f.id ? 'rgba(255, 87, 34, 0.2)' : 'rgba(255, 255, 255, 0.04)',
+                      border: `1px solid ${quickFilter === f.id ? 'var(--color-ember)' : 'var(--border-subtle)'}`,
+                      color: quickFilter === f.id ? '#ff8a50' : 'var(--text-secondary)',
+                      borderRadius: 'var(--radius-pill)',
+                      padding: '0.35rem 0.95rem',
+                      fontSize: '0.82rem'
+                    }}
+                    onClick={() => setQuickFilter(f.id as typeof quickFilter)}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+
               {/* Partner Cloud Kitchens Grid */}
               <section>
                 <div className="section-headline">
                   <div>
                     <h3>Partner Cloud Kitchens</h3>
-                    <span className="sub-tag">5 Michelin-inspired kitchens ready for instant dispatch</span>
+                    <span className="sub-tag">Michelin-grade dark kitchens operating on hyper-speed dispatch</span>
                   </div>
                   <span className="sub-tag" style={{ fontFamily: 'var(--font-mono)' }}>
                     {filteredRestaurants.length} active kitchens
@@ -694,7 +755,7 @@ export function App() {
 
                 {loading ? (
                   <div style={{ textAlign: 'center', padding: '4rem', color: '#94a3b8' }}>
-                    Loading gourmet kitchens...
+                    Loading gourmet cloud kitchens...
                   </div>
                 ) : (
                   <div className="kitchens-grid">
@@ -721,7 +782,7 @@ export function App() {
                           <div className="kitchen-footer">
                             <span>⏱️ {rest.deliveryTime}</span>
                             <span>💰 {rest.priceForTwo}</span>
-                            <span style={{ color: '#10b981', fontWeight: 700 }}>Open Now →</span>
+                            <span style={{ color: '#10b981', fontWeight: 800 }}>Explore Menu →</span>
                           </div>
                         </div>
                       </article>
@@ -731,13 +792,13 @@ export function App() {
               </section>
 
               {/* Trending Chef Specials Grid */}
-              <section style={{ marginTop: '1rem' }}>
+              <section style={{ marginTop: '0.5rem' }}>
                 <div className="section-headline">
                   <div>
                     <h3>Trending Chef Specials</h3>
-                    <span className="sub-tag">Top-rated signature dishes hand-crafted by master chefs</span>
+                    <span className="sub-tag">Top-rated signature creations crafted by master culinarians</span>
                   </div>
-                  <span className="sub-tag" style={{ color: '#ff8a50', fontWeight: 700 }}>
+                  <span className="sub-tag" style={{ color: '#ff8a50', fontWeight: 800 }}>
                     🔥 High Demand
                   </span>
                 </div>
@@ -758,7 +819,7 @@ export function App() {
                         </div>
 
                         <div className="trending-card-bottom">
-                          <span style={{ fontSize: '0.8rem', color: '#fbbf24', fontWeight: 700 }}>
+                          <span style={{ fontSize: '0.82rem', color: '#fbbf24', fontWeight: 800 }}>
                             ★ {dish.rating} ({dish.votes})
                           </span>
 
@@ -823,13 +884,13 @@ export function App() {
                       <span>•</span>
                       <span>💰 {selectedRestaurant.priceForTwo}</span>
                       <span>•</span>
-                      <span style={{ color: '#10b981', fontWeight: 700 }}>⚡ Free Delivery</span>
+                      <span style={{ color: '#10b981', fontWeight: 800 }}>🏆 Certified 5-Star Commercial Kitchen</span>
                     </div>
                   </div>
                 </div>
 
                 {/* Category Pills Strip */}
-                <div style={{ display: 'flex', gap: '0.65rem', overflowX: 'auto', paddingBottom: '0.5rem' }}>
+                <div style={{ display: 'flex', gap: '0.75rem', overflowX: 'auto', paddingBottom: '0.5rem' }}>
                   {categories.map((cat) => (
                     <button
                       key={cat}
@@ -838,7 +899,7 @@ export function App() {
                         background: selectedCategory === cat ? 'var(--color-ember-gradient)' : 'rgba(255, 255, 255, 0.04)',
                         border: '1px solid var(--border-subtle)',
                         borderRadius: 'var(--radius-pill)',
-                        padding: '0.45rem 1rem'
+                        padding: '0.45rem 1.15rem'
                       }}
                       onClick={() => setSelectedCategory(cat)}
                     >
@@ -850,7 +911,7 @@ export function App() {
                 {/* Dishes Grid */}
                 {menuLoading ? (
                   <div style={{ textAlign: 'center', padding: '4rem', color: '#94a3b8' }}>
-                    Loading menu dishes...
+                    Firing up chef menu...
                   </div>
                 ) : (
                   <div className="dishes-bento-grid">
@@ -918,14 +979,14 @@ export function App() {
       )}
 
       {/* =========================================================================
-         SLIDE-OVER CART DRAWER
+         SLIDE-OVER FEAST BASKET DRAWER
          ========================================================================= */}
       {isCartOpen && (
         <div className="drawer-backdrop" onClick={() => setIsCartOpen(false)}>
           <aside className="cart-drawer" onClick={(e) => e.stopPropagation()}>
             <div className="drawer-header">
               <h3>
-                🛒 Your Feast Basket <span style={{ color: '#ff8a50', fontSize: '0.9rem' }}>({totalCartCount})</span>
+                🛒 Your Feast Basket <span style={{ color: '#ff8a50', fontSize: '0.92rem' }}>({totalCartCount})</span>
               </h3>
               <button className="drawer-close-btn" onClick={() => setIsCartOpen(false)}>
                 ✕
@@ -933,6 +994,12 @@ export function App() {
             </div>
 
             <div className="drawer-content">
+              {/* Free delivery meter */}
+              <div className="free-delivery-meter">
+                <span>⚡</span>
+                <span>You unlocked <strong>FREE Express Dispatch</strong> for this order!</span>
+              </div>
+
               {totalCartCount === 0 ? (
                 <div className="cart-empty-state">
                   <div className="empty-icon">🍱</div>
@@ -966,7 +1033,7 @@ export function App() {
                     ))}
                   </div>
 
-                  {/* Coupon Box */}
+                  {/* Promo Coupon Section */}
                   <div>
                     <div className="cart-section-title">Promo Coupon</div>
                     {appliedCoupon ? (
@@ -991,9 +1058,9 @@ export function App() {
                         </div>
                         <div
                           style={{
-                            fontSize: '0.75rem',
+                            fontSize: '0.78rem',
                             color: '#ff8a50',
-                            marginTop: '0.4rem',
+                            marginTop: '0.45rem',
                             cursor: 'pointer'
                           }}
                           onClick={() => {
@@ -1001,10 +1068,27 @@ export function App() {
                             showToast('🎉 TUCKIN50 applied! ₹100 saved.');
                           }}
                         >
-                          ⚡ Tap here to auto-apply <strong>TUCKIN50</strong> for ₹100 OFF
+                          ⚡ Tap to auto-apply <strong>TUCKIN50</strong> for ₹100 OFF
                         </div>
                       </>
                     )}
+                  </div>
+
+                  {/* Delivery Instructions */}
+                  <div>
+                    <div className="cart-section-title">Delivery Instructions</div>
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      {['Leave at door', 'Avoid calling', 'Ring doorbell', 'Contactless drop'].map((inst) => (
+                        <button
+                          key={inst}
+                          className={`tip-pill-btn ${deliveryInstruction === inst ? 'active' : ''}`}
+                          style={{ flex: 'none', padding: '0.4rem 0.85rem' }}
+                          onClick={() => setDeliveryInstruction(inst)}
+                        >
+                          {inst}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   {/* Delivery Partner Tip */}
@@ -1015,7 +1099,8 @@ export function App() {
                         { label: 'None', paise: 0 },
                         { label: '₹20', paise: 2000 },
                         { label: '₹30', paise: 3000 },
-                        { label: '₹50', paise: 5000 }
+                        { label: '₹50', paise: 5000 },
+                        { label: '₹100', paise: 10000 }
                       ].map((tip) => (
                         <button
                           key={tip.paise}
@@ -1030,12 +1115,12 @@ export function App() {
 
                   {/* Payment Method Selector */}
                   <div>
-                    <div className="cart-section-title">Payment Method (Mock)</div>
+                    <div className="cart-section-title">Payment Method (Mock Sandbox)</div>
                     <div className="payment-options-grid">
                       {[
-                        { id: 'upi', label: '⚡ Mock UPI / Google Pay (Instant)', desc: 'Zero gateway fees' },
-                        { id: 'card', label: '💳 Mock Credit / Debit Card', desc: 'Encrypted test sandbox' },
-                        { id: 'cod', label: '💵 Cash / Pay on Delivery', desc: 'Pay courier at doorstep' }
+                        { id: 'upi', label: '⚡ Mock UPI / Google Pay (Instant 0s)', desc: 'Zero gateway latency' },
+                        { id: 'card', label: '💳 Mock Obsidian Black Card', desc: 'AES-256 test sandbox' },
+                        { id: 'cod', label: '💵 Cash / Pay on Delivery', desc: 'Pay courier on doorstep' }
                       ].map((method) => (
                         <div
                           key={method.id}
@@ -1061,7 +1146,7 @@ export function App() {
                   {/* Itemized Bill Details */}
                   <div className="bill-details">
                     <div className="bill-row">
-                      <span>Item Total</span>
+                      <span>Item Subtotal</span>
                       <span>{formatPaise(cartSubtotalPaise)}</span>
                     </div>
                     {discountPaise > 0 && (
@@ -1071,8 +1156,8 @@ export function App() {
                       </div>
                     )}
                     <div className="bill-row">
-                      <span>Delivery Fee</span>
-                      <span style={{ color: '#10b981', fontWeight: 700 }}>
+                      <span>Express Delivery Fee</span>
+                      <span style={{ color: '#10b981', fontWeight: 800 }}>
                         <span style={{ textDecoration: 'line-through', color: '#64748b', marginRight: '6px' }}>
                           ₹30.00
                         </span>
@@ -1080,12 +1165,12 @@ export function App() {
                       </span>
                     </div>
                     <div className="bill-row">
-                      <span>Platform & Packaging</span>
+                      <span>Platform & Hygienic Packaging</span>
                       <span>₹15.00</span>
                     </div>
                     {selectedTipPaise > 0 && (
                       <div className="bill-row">
-                        <span>Driver Tip</span>
+                        <span>Delivery Partner Tip</span>
                         <span>{formatPaise(selectedTipPaise)}</span>
                       </div>
                     )}
@@ -1115,6 +1200,60 @@ export function App() {
               </div>
             )}
           </aside>
+        </div>
+      )}
+
+      {/* =========================================================================
+         LOCATION HUB MODAL
+         ========================================================================= */}
+      {isHubModalOpen && (
+        <div className="modal-overlay" onClick={() => setIsHubModalOpen(false)}>
+          <div className="telemetry-modal" style={{ maxWidth: '480px' }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <h3>📍 Select Culinary Cloud Hub</h3>
+                <span style={{ fontSize: '0.82rem', color: '#94a3b8' }}>
+                  Ultra-fast delivery within your Bengaluru micro-corridor
+                </span>
+              </div>
+              <button className="drawer-close-btn" onClick={() => setIsHubModalOpen(false)}>
+                ✕
+              </button>
+            </div>
+
+            <div className="hub-options-list">
+              {HUBS.map((hub) => (
+                <div
+                  key={hub.id}
+                  className={`hub-option-card ${currentHub.id === hub.id ? 'active' : ''}`}
+                  onClick={() => {
+                    setCurrentHub(hub);
+                    setIsHubModalOpen(false);
+                    showToast(`Switched hub to ${hub.name}`);
+                  }}
+                >
+                  <div>
+                    <h5 style={{ margin: '0 0 0.2rem 0', fontSize: '1rem', fontWeight: 800 }}>{hub.name}</h5>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                      Avg Dispatch: {hub.avgTime} • {hub.zone}
+                    </span>
+                  </div>
+                  <span
+                    style={{
+                      background: currentHub.id === hub.id ? 'var(--color-ember)' : 'rgba(255, 255, 255, 0.06)',
+                      color: 'white',
+                      fontSize: '0.75rem',
+                      fontWeight: 800,
+                      padding: '0.25rem 0.65rem',
+                      borderRadius: 'var(--radius-pill)'
+                    }}
+                  >
+                    {hub.tag}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 
@@ -1153,10 +1292,10 @@ export function App() {
                   background: currentOrder.status === 'DELIVERED' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(56, 189, 248, 0.2)',
                   border: `1px solid ${currentOrder.status === 'DELIVERED' ? '#10b981' : '#38bdf8'}`,
                   color: currentOrder.status === 'DELIVERED' ? '#34d399' : '#38bdf8',
-                  padding: '0.35rem 0.85rem',
+                  padding: '0.4rem 0.95rem',
                   borderRadius: '9999px',
-                  fontWeight: 800,
-                  fontSize: '0.82rem',
+                  fontWeight: 900,
+                  fontSize: '0.85rem',
                   fontFamily: 'var(--font-mono)'
                 }}
               >
@@ -1192,11 +1331,26 @@ export function App() {
             <div className="rider-card">
               <div className="rider-avatar">🛵</div>
               <div className="rider-info" style={{ flex: 1 }}>
-                <h5>Vikram S. • Honda Activa (KA-03-EK-9482)</h5>
-                <p>Express Fleet Partner • 4.9 ★ (1,840+ deliveries)</p>
-                <div style={{ fontSize: '0.72rem', color: '#38bdf8', marginTop: '0.2rem' }}>
-                  📞 Direct Courier Line: +91 98765-43210 (Masked)
+                <h5>Vikram S. • Ather 450X EV (KA-03-EK-9482)</h5>
+                <p>Express Fleet Partner • 4.96 ★ (2,410 on-time deliveries)</p>
+                <div style={{ fontSize: '0.74rem', color: '#38bdf8', marginTop: '0.25rem' }}>
+                  📞 Direct Masked Line: +91 98765-43210
                 </div>
+              </div>
+            </div>
+
+            {/* Order item recap in modal */}
+            <div style={{ background: 'rgba(255, 255, 255, 0.02)', padding: '0.85rem 1.15rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', fontSize: '0.82rem' }}>
+              <div style={{ fontWeight: 800, marginBottom: '0.35rem', color: 'var(--text-white)' }}>
+                Order Items ({currentOrder.items.length})
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', color: 'var(--text-secondary)' }}>
+                {currentOrder.items.map((i) => (
+                  <div key={i.menuItemId} style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>{i.quantity}x {i.name}</span>
+                    <span style={{ fontFamily: 'var(--font-mono)' }}>{formatPaise(i.lineTotalPaise)}</span>
+                  </div>
+                ))}
               </div>
             </div>
 
@@ -1241,6 +1395,12 @@ export function App() {
                   {operatorOrders.filter((o) => o.status === 'DELIVERED').length}
                 </div>
                 <div className="kds-metric-label">Delivered</div>
+              </div>
+              <div className="kds-metric-card">
+                <div className="kds-metric-val" style={{ color: '#10b981' }}>
+                  98.4%
+                </div>
+                <div className="kds-metric-label">Efficiency</div>
               </div>
             </div>
           </div>
@@ -1375,7 +1535,7 @@ export function App() {
                   </div>
                   <div className="kds-order-footer">
                     <span>{formatPaise(ord.totalPaise)}</span>
-                    <span style={{ fontSize: '0.8rem', color: '#10b981', fontWeight: 700 }}>
+                    <span style={{ fontSize: '0.82rem', color: '#10b981', fontWeight: 800 }}>
                       ✓ Completed
                     </span>
                   </div>
