@@ -374,8 +374,8 @@ export function App() {
             </div>
           </div>
           <div className="location-pill">
-            <span className="loc-icon">📍</span>
-            <span>Indiranagar, Zone Central</span>
+            <span className="radar-dot" />
+            <span>Indiranagar Central • <strong>Live Hub</strong></span>
           </div>
         </div>
 
@@ -384,10 +384,11 @@ export function App() {
             <span className="search-icon">🔍</span>
             <input
               type="text"
-              placeholder="Search for biryani, dosa, noodles, starters..."
+              placeholder="Search dishes, ingredients, cloud kitchens..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
+            <span className="kbd-hint">⌘K</span>
           </div>
         </div>
 
@@ -428,13 +429,31 @@ export function App() {
       {/* CUSTOMER VIEW */}
       {viewMode === 'customer' && (
         <>
-          {/* Hero Discount Banner */}
-          <div className="hero-promo-banner">
-            <div className="promo-content">
-              <h2>⚡ 50% OFF up to ₹100 on your first 3 orders</h2>
-              <p>Lightning-fast cloud kitchen delivery with live order tracking</p>
+          {/* YC Launch Hero Header */}
+          <div className="hero-wrapper">
+            <div className="hero-announcement">
+              <span>⚡ NEXT-GEN CLOUD KITCHEN • SUB-20 MIN DISPATCH</span>
             </div>
-            <div className="promo-pill">USE CODE: TUCKIN50</div>
+            <div className="hero-main-title">
+              <div className="hero-text">
+                <h2>Instant Culinary Cloud.</h2>
+                <p>Chef-crafted gourmet meals, fired on-demand and dispatched at hyper-speed across Bengaluru.</p>
+              </div>
+              <div className="telemetry-strip">
+                <div className="telemetry-item">
+                  <span className="telemetry-val">18m</span>
+                  <span className="telemetry-label">Avg Dispatch</span>
+                </div>
+                <div className="telemetry-item">
+                  <span className="telemetry-val">28,490+</span>
+                  <span className="telemetry-label">Meals Cooked</span>
+                </div>
+                <div className="telemetry-item">
+                  <span className="telemetry-val">4.92 ★</span>
+                  <span className="telemetry-label">App Rating</span>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Active Order Live Tracking Tracker */}
@@ -527,6 +546,7 @@ export function App() {
                   >
                     <div className="rest-image-wrap">
                       <img src={rest.imageUrl} alt={rest.name} loading="lazy" />
+                      <div className="rest-image-gradient" />
                       <div className="rating-badge">
                         <span className="star">★</span>
                         <span>{rest.rating}</span>
