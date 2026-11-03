@@ -9,6 +9,7 @@ export interface FallbackRestaurant {
   deliveryTime: string;
   priceForTwo: string;
   imageUrl: string;
+  featuredTag?: string;
 }
 
 export interface FallbackMenuItem {
@@ -23,6 +24,7 @@ export interface FallbackMenuItem {
   rating: number;
   votes: number;
   imageUrl: string;
+  isBestseller?: boolean;
 }
 
 export const FALLBACK_RESTAURANTS: FallbackRestaurant[] = [
@@ -33,10 +35,11 @@ export const FALLBACK_RESTAURANTS: FallbackRestaurant[] = [
     deliveryZone: 'zone-central-demo',
     isOpen: true,
     cuisine: 'Biryani • North Indian • Mughlai',
-    rating: 4.8,
-    deliveryTime: '25–30 mins',
+    rating: 4.9,
+    deliveryTime: '22–26 mins',
     priceForTwo: '₹450 for two',
-    imageUrl: 'https://images.unsplash.com/photo-1589302168068-964664d93dc0?w=600&auto=format&fit=crop&q=80'
+    imageUrl: 'https://images.unsplash.com/photo-1589302168068-964664d93dc0?w=800&auto=format&fit=crop&q=80',
+    featuredTag: '🔥 50% OFF UP TO ₹100'
   },
   {
     id: 'rest-dosa-corner',
@@ -45,10 +48,11 @@ export const FALLBACK_RESTAURANTS: FallbackRestaurant[] = [
     deliveryZone: 'zone-central-demo',
     isOpen: true,
     cuisine: 'South Indian • Tiffin • Coffee',
-    rating: 4.7,
-    deliveryTime: '20–25 mins',
+    rating: 4.8,
+    deliveryTime: '18–22 mins',
     priceForTwo: '₹300 for two',
-    imageUrl: 'https://images.unsplash.com/photo-1668236543090-82eba5ee5976?w=600&auto=format&fit=crop&q=80'
+    imageUrl: 'https://images.unsplash.com/photo-1668236543090-82eba5ee5976?w=800&auto=format&fit=crop&q=80',
+    featuredTag: '⚡ FREE DELIVERY'
   },
   {
     id: 'rest-wok-express',
@@ -57,10 +61,37 @@ export const FALLBACK_RESTAURANTS: FallbackRestaurant[] = [
     deliveryZone: 'zone-north-demo',
     isOpen: true,
     cuisine: 'Pan-Asian • Noodles • Dimsums',
-    rating: 4.6,
-    deliveryTime: '30–35 mins',
+    rating: 4.7,
+    deliveryTime: '25–30 mins',
     priceForTwo: '₹400 for two',
-    imageUrl: 'https://images.unsplash.com/photo-1585032226651-759b368d7246?w=600&auto=format&fit=crop&q=80'
+    imageUrl: 'https://images.unsplash.com/photo-1585032226651-759b368d7246?w=800&auto=format&fit=crop&q=80',
+    featuredTag: '🥢 CHEF SPECIALS'
+  },
+  {
+    id: 'rest-burger-brew',
+    name: 'Smash & Brew Craft Burgers',
+    description: 'Truffle mushroom smash burgers, loaded peri-peri fries & thick gourmet shakes.',
+    deliveryZone: 'zone-central-demo',
+    isOpen: true,
+    cuisine: 'American • Burgers • Shakes',
+    rating: 4.9,
+    deliveryTime: '20–25 mins',
+    priceForTwo: '₹500 for two',
+    imageUrl: 'https://images.unsplash.com/photo-1550547660-d9450f859349?w=800&auto=format&fit=crop&q=80',
+    featuredTag: '🍔 TOP RATED 2026'
+  },
+  {
+    id: 'rest-artisan-pizza',
+    name: 'Via Napoli Artisan Pizza',
+    description: '48-hour fermented sourdough wood-fired pizzas, burrata salads & tiramisu.',
+    deliveryZone: 'zone-central-demo',
+    isOpen: true,
+    cuisine: 'Italian • Neapolitan Pizza • Pasta',
+    rating: 4.8,
+    deliveryTime: '24–28 mins',
+    priceForTwo: '₹600 for two',
+    imageUrl: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=800&auto=format&fit=crop&q=80',
+    featuredTag: '🍕 WOOD-FIRED'
   }
 ];
 
@@ -77,7 +108,8 @@ export const FALLBACK_MENU_ITEMS: FallbackMenuItem[] = [
     isVeg: true,
     rating: 4.9,
     votes: 342,
-    imageUrl: 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=500&auto=format&fit=crop&q=80'
+    imageUrl: 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=500&auto=format&fit=crop&q=80',
+    isBestseller: true
   },
   {
     id: 'item-biryani-002',
@@ -90,7 +122,8 @@ export const FALLBACK_MENU_ITEMS: FallbackMenuItem[] = [
     isVeg: true,
     rating: 4.8,
     votes: 189,
-    imageUrl: 'https://images.unsplash.com/photo-1633945274405-b6c8069047b0?w=500&auto=format&fit=crop&q=80'
+    imageUrl: 'https://images.unsplash.com/photo-1633945274405-b6c8069047b0?w=500&auto=format&fit=crop&q=80',
+    isBestseller: true
   },
   {
     id: 'item-starter-001',
@@ -116,7 +149,8 @@ export const FALLBACK_MENU_ITEMS: FallbackMenuItem[] = [
     isVeg: true,
     rating: 4.8,
     votes: 420,
-    imageUrl: 'https://images.unsplash.com/photo-1601050690597-df0568f70950?w=500&auto=format&fit=crop&q=80'
+    imageUrl: 'https://images.unsplash.com/photo-1601050690597-df0568f70950?w=500&auto=format&fit=crop&q=80',
+    isBestseller: true
   },
 
   // Madras Tiffin Room
@@ -131,7 +165,8 @@ export const FALLBACK_MENU_ITEMS: FallbackMenuItem[] = [
     isVeg: true,
     rating: 4.9,
     votes: 560,
-    imageUrl: 'https://images.unsplash.com/photo-1668236543090-82eba5ee5976?w=500&auto=format&fit=crop&q=80'
+    imageUrl: 'https://images.unsplash.com/photo-1668236543090-82eba5ee5976?w=500&auto=format&fit=crop&q=80',
+    isBestseller: true
   },
   {
     id: 'item-dosa-002',
@@ -157,7 +192,8 @@ export const FALLBACK_MENU_ITEMS: FallbackMenuItem[] = [
     isVeg: true,
     rating: 4.9,
     votes: 680,
-    imageUrl: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=500&auto=format&fit=crop&q=80'
+    imageUrl: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=500&auto=format&fit=crop&q=80',
+    isBestseller: true
   },
 
   // Dragon Wok Express
@@ -172,7 +208,8 @@ export const FALLBACK_MENU_ITEMS: FallbackMenuItem[] = [
     isVeg: true,
     rating: 4.8,
     votes: 275,
-    imageUrl: 'https://images.unsplash.com/photo-1612927601601-6638404737ce?w=500&auto=format&fit=crop&q=80'
+    imageUrl: 'https://images.unsplash.com/photo-1612927601601-6638404737ce?w=500&auto=format&fit=crop&q=80',
+    isBestseller: true
   },
   {
     id: 'item-wok-002',
@@ -186,5 +223,91 @@ export const FALLBACK_MENU_ITEMS: FallbackMenuItem[] = [
     rating: 4.7,
     votes: 190,
     imageUrl: 'https://images.unsplash.com/photo-1496116218417-1a781b1c416c?w=500&auto=format&fit=crop&q=80'
+  },
+
+  // Smash & Brew Craft Burgers
+  {
+    id: 'item-burger-001',
+    restaurantId: 'rest-burger-brew',
+    name: 'Truffle Mushroom Smash Burger',
+    description: 'Double grilled plant-patty glazed with truffle butter, sauteed portobello mushrooms, aged cheddar & caramelized onions on brioche.',
+    pricePaise: 26000,
+    available: true,
+    category: 'Burgers',
+    isVeg: true,
+    rating: 4.9,
+    votes: 412,
+    imageUrl: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500&auto=format&fit=crop&q=80',
+    isBestseller: true
+  },
+  {
+    id: 'item-burger-002',
+    restaurantId: 'rest-burger-brew',
+    name: 'Loaded Peri-Peri Truffle Fries',
+    description: 'Skin-on golden potato fries tossed in African bird eye chili peri-peri spice with creamy garlic truffle aioli dip.',
+    pricePaise: 16000,
+    available: true,
+    category: 'Sides',
+    isVeg: true,
+    rating: 4.8,
+    votes: 290,
+    imageUrl: 'https://images.unsplash.com/photo-1576107232684-1279f3908594?w=500&auto=format&fit=crop&q=80',
+    isBestseller: true
+  },
+  {
+    id: 'item-burger-003',
+    restaurantId: 'rest-burger-brew',
+    name: 'Belgian Dark Chocolate Shake',
+    description: 'Slow-churned thick shake crafted with 70% Belgian Callebaut dark chocolate and Madagascar vanilla bean.',
+    pricePaise: 18000,
+    available: true,
+    category: 'Beverages',
+    isVeg: true,
+    rating: 4.9,
+    votes: 380,
+    imageUrl: 'https://images.unsplash.com/photo-1572490122747-3968b75cc699?w=500&auto=format&fit=crop&q=80'
+  },
+
+  // Via Napoli Artisan Pizza
+  {
+    id: 'item-pizza-001',
+    restaurantId: 'rest-artisan-pizza',
+    name: 'Margherita Burrata Woodfired Pizza',
+    description: 'San Marzano tomato sugo, creamy artisanal burrata ball, fresh genovese basil & extra virgin olive oil on blistered sourdough crust.',
+    pricePaise: 32000,
+    available: true,
+    category: 'Pizza',
+    isVeg: true,
+    rating: 4.9,
+    votes: 510,
+    imageUrl: 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=500&auto=format&fit=crop&q=80',
+    isBestseller: true
+  },
+  {
+    id: 'item-pizza-002',
+    restaurantId: 'rest-artisan-pizza',
+    name: 'Wild Mushroom Truffle Fettuccine',
+    description: 'Fresh handmade pasta ribbons tossed in creamy porcini mushroom broth, parmigiano reggiano & white truffle oil.',
+    pricePaise: 29000,
+    available: true,
+    category: 'Pasta',
+    isVeg: true,
+    rating: 4.8,
+    votes: 260,
+    imageUrl: 'https://images.unsplash.com/photo-1621996346565-e3d5d6281229?w=500&auto=format&fit=crop&q=80'
+  },
+  {
+    id: 'item-pizza-003',
+    restaurantId: 'rest-artisan-pizza',
+    name: 'Classic Espresso Tiramisu',
+    description: 'Coffee-soaked savoiardi ladyfinger biscuits layered with velvety mascarpone sabayon and dusted with Valrhona cocoa.',
+    pricePaise: 19000,
+    available: true,
+    category: 'Desserts',
+    isVeg: true,
+    rating: 4.9,
+    votes: 450,
+    imageUrl: 'https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?w=500&auto=format&fit=crop&q=80',
+    isBestseller: true
   }
 ];
