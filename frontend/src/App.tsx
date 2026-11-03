@@ -1,6 +1,13 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import './App.css';
-import { formatPaise, playAddSound, playSuccessSound } from './utils.js';
+import {
+  formatPaise,
+  playAddSound,
+  playSuccessSound,
+  playToggleSound,
+  playDeleteSound,
+  setSoundEnabled
+} from './utils.js';
 import {
   FALLBACK_RESTAURANTS,
   FALLBACK_MENU_ITEMS,
@@ -17,6 +24,7 @@ interface OrderItem {
   quantity: number;
   unitPricePaise: number;
   lineTotalPaise: number;
+  customizationNotes?: string;
 }
 
 interface Order {
@@ -62,10 +70,48 @@ const CUISINE_FILTERS = [
   { id: 'Pan-Asian', label: 'Pan-Asian', emoji: '🥢' }
 ];
 
+const AI_VIBES = [
+  {
+    id: 'hacker',
+    icon: '⚡',
+    title: 'Late Night Hacker Fuel',
+    desc: 'Double smash craft burger, peri-peri loaded fries, and rich dark chocolate shake.',
+    itemIds: ['item-burger-001', 'item-burger-002', 'item-burger-003'],
+    discountPaise: 10000
+  },
+  {
+    id: 'date',
+    icon: '🥂',
+    title: 'Gourmet Date Night',
+    desc: 'Artisanal Neapolitan burrata pizza, wild mushroom truffle pasta, and classic tiramisu.',
+    itemIds: ['item-pizza-001', 'item-pizza-002', 'item-pizza-003'],
+    discountPaise: 12000
+  },
+  {
+    id: 'royal',
+    icon: '👑',
+    title: 'Hyderabadi Royal Feast',
+    desc: 'Royal veg dum biryani, charred malai tikka, and warm butter garlic naan.',
+    itemIds: ['item-biryani-001', 'item-starter-001', 'item-bread-001'],
+    discountPaise: 8000
+  },
+  {
+    id: 'zen',
+    icon: '🥞',
+    title: 'Zen South Tiffin Comfort',
+    desc: 'Golden ghee roast masala dosa, cloud idlis, and freshly brewed filter kaapi.',
+    itemIds: ['item-dosa-001', 'item-dosa-002', 'item-beverage-001'],
+    discountPaise: 5000
+  }
+];
+
 export function App() {
   const [viewMode, setViewMode] = useState<'customer' | 'operator'>('customer');
   const [activeView, setActiveView] = useState<'home' | 'restaurant-detail'>('home');
+  const [isVipBlack, setIsVipBlack] = useState(false);
+  const [soundActive, setSoundActive] = useState(true);
   const [currentHub, setCurrentHub] = useState<HubLocation>(HUBS[0]);
+
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
@@ -73,14 +119,21 @@ export function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCuisine, setSelectedCuisine] = useState<string>('All');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
-  const [quickFilter, setQuickFilter] = useState<'all' | 'topRated' | 'fast' | 'veg'>('all');
+  const [quickFilter, setQuickFilter] = useState<'all' | 'topRated' | 'fast'>('all');
 
-  // Overlays
+  // Modals & Overlays
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isTrackingModalOpen, setIsTrackingModalOpen] = useState(false);
   const [isHubModalOpen, setIsHubModalOpen] = useState(false);
+  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+  const [isRadarModalOpen, setIsRadarModalOpen] = useState(false);
+  const [customizingItem, setCustomizingItem] = useState<MenuItem | null>(null);
 
-  // Cart customization
+  // Customization state
+  const [selectedSpice, setSelectedSpice] = useState<'Mild' | 'Classic' | 'Fiery'>('Classic');
+  const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
+
+  // Cart configuration
   const [couponInput, setCouponInput] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
   const [selectedTipPaise, setSelectedTipPaise] = useState<number>(0);
@@ -91,7 +144,7 @@ export function App() {
   const [currentOrder, setCurrentOrder] = useState<Order | null>(null);
   const [deliveryInfo, setDeliveryInfo] = useState<DeliveryTracking | null>(null);
   const [operatorOrders, setOperatorOrders] = useState<Order[]>([]);
-  const [countdownSeconds, setCountdownSeconds] = useState<number>(22 * 60);
+  const [countdownSeconds, setCountdownSeconds] = useState<number>(20 * 60);
 
   // Status & notifications
   const [loading, setLoading] = useState(true);
@@ -107,6 +160,15 @@ export function App() {
     setTimeout(() => setNotification(null), 3500);
   };
 
+  // Sync VIP Black class on body
+  useEffect(() => {
+    if (isVipBlack) {
+      document.body.classList.add('tuckin-black-mode');
+    } else {
+      document.body.classList.remove('tuckin-black-mode');
+    }
+  }, [isVipBlack]);
+
   // Keyboard shortcut: Cmd+K / Ctrl+K to search; Esc to close overlays
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -118,6 +180,9 @@ export function App() {
         setIsCartOpen(false);
         setIsTrackingModalOpen(false);
         setIsHubModalOpen(false);
+        setIsAiModalOpen(false);
+        setIsRadarModalOpen(false);
+        setCustomizingItem(null);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -133,18 +198,18 @@ export function App() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
 
-    const colors = ['#ff5722', '#ff8a50', '#f59e0b', '#10b981', '#38bdf8', '#8b5cf6', '#ffffff'];
-    const particles = Array.from({ length: 95 }, () => ({
+    const colors = ['#ff5722', '#ff8a50', '#f59e0b', '#10b981', '#38bdf8', '#8b5cf6', '#ffd166'];
+    const particles = Array.from({ length: 110 }, () => ({
       x: canvas.width / 2,
-      y: canvas.height * 0.45,
-      vx: (Math.random() - 0.5) * 18,
-      vy: (Math.random() - 0.75) * 18,
+      y: canvas.height * 0.42,
+      vx: (Math.random() - 0.5) * 20,
+      vy: (Math.random() - 0.8) * 20,
       color: colors[Math.floor(Math.random() * colors.length)],
-      size: Math.random() * 8 + 4,
+      size: Math.random() * 9 + 4,
       alpha: 1,
-      decay: Math.random() * 0.015 + 0.01,
+      decay: Math.random() * 0.014 + 0.009,
       rotation: Math.random() * 360,
-      rotSpeed: (Math.random() - 0.5) * 10
+      rotSpeed: (Math.random() - 0.5) * 12
     }));
 
     const frame = () => {
@@ -153,7 +218,7 @@ export function App() {
       particles.forEach((p) => {
         p.x += p.vx;
         p.y += p.vy;
-        p.vy += 0.35; // gravity
+        p.vy += 0.38; // gravity
         p.alpha -= p.decay;
         p.rotation += p.rotSpeed;
         if (p.alpha > 0) {
@@ -201,6 +266,7 @@ export function App() {
   const openRestaurantMenu = (restaurant: Restaurant) => {
     selectRestaurant(restaurant);
     setActiveView('restaurant-detail');
+    playToggleSound();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -288,7 +354,7 @@ export function App() {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   }, [countdownSeconds]);
 
-  // Cart operations with audio feedback
+  // Cart operations
   const addToCart = (item: MenuItem, restaurant?: Restaurant) => {
     if (restaurant && selectedRestaurant?.id !== restaurant.id) {
       setSelectedRestaurant(restaurant);
@@ -309,11 +375,12 @@ export function App() {
       if (existing.quantity <= 1) {
         const updated = { ...prev };
         delete updated[itemId];
+        playDeleteSound();
         return updated;
       }
+      playAddSound();
       return { ...prev, [itemId]: { ...existing, quantity: existing.quantity - 1 } };
     });
-    playAddSound();
   };
 
   const totalCartCount = useMemo(() => {
@@ -326,15 +393,18 @@ export function App() {
   }, [cart]);
 
   const discountPaise = useMemo(() => {
+    let d = 0;
     if (appliedCoupon === 'TUCKIN50') {
-      // 50% discount up to ₹100 (= 10,000 paise)
-      return Math.min(10000, Math.floor(cartSubtotalPaise * 0.5));
+      d = Math.min(10000, Math.floor(cartSubtotalPaise * 0.5));
     }
-    return 0;
-  }, [appliedCoupon, cartSubtotalPaise]);
+    if (isVipBlack) {
+      d += 5000; // Extra ₹50 VIP perk discount
+    }
+    return Math.min(cartSubtotalPaise, d);
+  }, [appliedCoupon, isVipBlack, cartSubtotalPaise]);
 
   const deliveryFeePaise = 0; // Free delivery promotion
-  const platformFeePaise = cartSubtotalPaise > 0 ? 1500 : 0; // ₹15.00 packaging & platform fee
+  const platformFeePaise = cartSubtotalPaise > 0 ? (isVipBlack ? 0 : 1500) : 0; // Free for VIP Black
   const grandTotalPaise = Math.max(
     0,
     cartSubtotalPaise - discountPaise + deliveryFeePaise + platformFeePaise + selectedTipPaise
@@ -347,6 +417,22 @@ export function App() {
       setCouponInput('');
     } else {
       showToast('Invalid coupon. Try TUCKIN50 for 50% off.');
+    }
+  };
+
+  // Add entire AI Tasting Flight to cart
+  const addAiBundleToCart = (itemIds: string[]) => {
+    const itemsToAdd = FALLBACK_MENU_ITEMS.filter((i) => itemIds.includes(i.id));
+    if (itemsToAdd.length > 0) {
+      const newCart = { ...cart };
+      itemsToAdd.forEach((item) => {
+        newCart[item.id] = { item, quantity: 1 };
+      });
+      setCart(newCart);
+      setIsAiModalOpen(false);
+      setIsCartOpen(true);
+      playSuccessSound();
+      showToast('✨ Bespoke Tasting Flight added to feast basket!');
     }
   };
 
@@ -411,18 +497,18 @@ export function App() {
       items,
       totalPaise: grandTotalPaise,
       deliveryZone: currentHub.zone,
-      estimatedDeliveryMinutes: 22,
+      estimatedDeliveryMinutes: isVipBlack ? 16 : 22,
       createdAt: new Date().toISOString()
     };
     setCurrentOrder(mockOrder);
     setCart({});
     setIsCartOpen(false);
     setIsTrackingModalOpen(true);
-    setCountdownSeconds(22 * 60);
+    setCountdownSeconds((isVipBlack ? 16 : 22) * 60);
     setDeliveryInfo({
       orderId: mockOrder.id,
       status: 'PLACED',
-      estimatedDeliveryMinutes: 22,
+      estimatedDeliveryMinutes: isVipBlack ? 16 : 22,
       simulated: true,
       updatedAt: new Date().toISOString()
     });
@@ -509,7 +595,7 @@ export function App() {
         rest.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         rest.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
         rest.cuisine.toLowerCase().includes(searchQuery.toLowerCase());
-      
+
       let matchesQuick = true;
       if (quickFilter === 'topRated') matchesQuick = rest.rating >= 4.8;
       if (quickFilter === 'fast') matchesQuick = rest.deliveryTime?.includes('18') || rest.deliveryTime?.includes('20') || false;
@@ -558,13 +644,13 @@ export function App() {
             position: 'fixed',
             bottom: '24px',
             right: '24px',
-            background: 'var(--color-ember-gradient)',
-            color: '#ffffff',
+            background: isVipBlack ? 'linear-gradient(135deg, #ffd166 0%, #d97706 100%)' : 'var(--color-ember-gradient)',
+            color: isVipBlack ? '#030712' : '#ffffff',
             fontWeight: 800,
-            fontSize: '0.9rem',
-            padding: '12px 24px',
+            fontSize: '0.92rem',
+            padding: '13px 26px',
             borderRadius: '9999px',
-            boxShadow: '0 14px 35px rgba(255, 87, 34, 0.5)',
+            boxShadow: '0 16px 40px rgba(0, 0, 0, 0.6)',
             zIndex: 4000,
             animation: 'fadeIn 0.2s ease',
             border: '1px solid rgba(255, 255, 255, 0.25)'
@@ -582,6 +668,7 @@ export function App() {
             onClick={() => {
               setViewMode('customer');
               setActiveView('home');
+              playToggleSound();
             }}
           >
             <span className="logo-icon">🍛</span>
@@ -590,7 +677,10 @@ export function App() {
           <div
             className="location-pill"
             title="Click to switch delivery cloud hub"
-            onClick={() => setIsHubModalOpen(true)}
+            onClick={() => {
+              setIsHubModalOpen(true);
+              playToggleSound();
+            }}
           >
             <span className="radar-dot" />
             <span>{currentHub.name} • <strong>{currentHub.avgTime}</strong> ▾</span>
@@ -603,7 +693,7 @@ export function App() {
             <input
               ref={searchInputRef}
               type="text"
-              placeholder="Search master-chef dishes, biryani, burgers, artisan pizza..."
+              placeholder="Search dishes, ingredients, kitchens..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -612,23 +702,68 @@ export function App() {
         </div>
 
         <div className="header-actions">
+          {/* VIP Black Toggle */}
+          <button
+            className={`vip-black-toggle ${isVipBlack ? 'active' : ''}`}
+            onClick={() => {
+              setIsVipBlack(!isVipBlack);
+              playSuccessSound();
+              showToast(isVipBlack ? 'Switched to Standard Mode' : '👑 Tuckin Black VIP Edition Activated!');
+            }}
+            title="Toggle Tuckin Black VIP membership perks"
+          >
+            <span>👑</span>
+            <span>{isVipBlack ? 'VIP Black' : 'Go Black'}</span>
+          </button>
+
+          {/* AI Concierge Trigger */}
+          <button
+            className="ai-concierge-pill"
+            onClick={() => {
+              setIsAiModalOpen(true);
+              playToggleSound();
+            }}
+            title="Open Tuckin AI Sommelier"
+          >
+            <span>✨</span>
+            <span>AI Concierge</span>
+          </button>
+
+          {/* Sound FX Toggle */}
+          <button
+            className="sound-toggle-btn"
+            onClick={() => {
+              const next = !soundActive;
+              setSoundActive(next);
+              setSoundEnabled(next);
+              if (next) playAddSound();
+              showToast(next ? 'Sound FX Enabled' : 'Sound Muted');
+            }}
+            title={soundActive ? 'Sound Effects Enabled' : 'Muted'}
+          >
+            {soundActive ? '🔊' : '🔇'}
+          </button>
+
+          {/* Customer vs Operator Toggle */}
           <div className="mode-toggle">
             <button
               className={`mode-btn ${viewMode === 'customer' ? 'active' : ''}`}
               onClick={() => {
                 setViewMode('customer');
+                playToggleSound();
               }}
             >
-              🍽️ Haute Menu
+              🍽️ Menu
             </button>
             <button
               className={`mode-btn ${viewMode === 'operator' ? 'active' : ''}`}
               onClick={() => {
                 setViewMode('operator');
                 loadOperatorOrders();
+                playToggleSound();
               }}
             >
-              👨‍🍳 Kitchen KDS
+              👨‍🍳 KDS
             </button>
           </div>
 
@@ -641,14 +776,23 @@ export function App() {
                 border: '1px solid rgba(56, 189, 248, 0.45)',
                 fontWeight: 800
               }}
-              onClick={() => setIsTrackingModalOpen(true)}
+              onClick={() => {
+                setIsTrackingModalOpen(true);
+                playToggleSound();
+              }}
             >
               🛵 Track Order (#{currentOrder.id.slice(-6)})
             </button>
           )}
 
           {viewMode === 'customer' && (
-            <button className="cart-toggle-btn" onClick={() => setIsCartOpen(true)}>
+            <button
+              className="cart-toggle-btn"
+              onClick={() => {
+                setIsCartOpen(true);
+                playToggleSound();
+              }}
+            >
               🛒 Basket
               <span className="cart-badge">{totalCartCount}</span>
               {cartSubtotalPaise > 0 && <span>{formatPaise(cartSubtotalPaise)}</span>}
@@ -699,13 +843,43 @@ export function App() {
                 </div>
               </div>
 
+              {/* Interactive Fleet Radar Hub Banner */}
+              <div
+                className="radar-hub-banner"
+                onClick={() => {
+                  setIsRadarModalOpen(true);
+                  playToggleSound();
+                }}
+                title="Open live telemetry map"
+              >
+                <div className="radar-hub-left">
+                  <div className="radar-hub-icon">📡</div>
+                  <div className="radar-hub-info">
+                    <h4>Bengaluru Cloud Kitchen Telemetry Radar (Live)</h4>
+                    <p>8 couriers in active flight • 5 commercial nodes synchronized • 68.4°C thermal lock</p>
+                  </div>
+                </div>
+                <div className="radar-pulse-nodes">
+                  <div className="pulse-node-badge">
+                    <span className="radar-dot" />
+                    <span>GPS Tracking Active</span>
+                  </div>
+                  <span style={{ color: 'var(--color-ember)', fontWeight: 800, fontSize: '0.88rem' }}>
+                    View Live Radar →
+                  </span>
+                </div>
+              </div>
+
               {/* Cuisine Stories Strip */}
               <div className="cuisine-bubbles-strip" style={{ paddingLeft: 0, paddingRight: 0 }}>
                 {CUISINE_FILTERS.map((cat) => (
                   <button
                     key={cat.id}
                     className={`cuisine-bubble-card ${selectedCuisine === cat.id ? 'active' : ''}`}
-                    onClick={() => setSelectedCuisine(cat.id)}
+                    onClick={() => {
+                      setSelectedCuisine(cat.id);
+                      playToggleSound();
+                    }}
                   >
                     <div className="bubble-avatar">{cat.emoji}</div>
                     <span className="bubble-label">{cat.label}</span>
@@ -734,7 +908,10 @@ export function App() {
                       padding: '0.35rem 0.95rem',
                       fontSize: '0.82rem'
                     }}
-                    onClick={() => setQuickFilter(f.id as typeof quickFilter)}
+                    onClick={() => {
+                      setQuickFilter(f.id as typeof quickFilter);
+                      playToggleSound();
+                    }}
                   >
                     {f.label}
                   </button>
@@ -808,7 +985,14 @@ export function App() {
                     const inCart = cart[dish.id]?.quantity || 0;
                     const rest = restaurants.find((r) => r.id === dish.restaurantId);
                     return (
-                      <div key={dish.id} className="trending-card">
+                      <div
+                        key={dish.id}
+                        className="trending-card"
+                        onClick={() => {
+                          setCustomizingItem(dish);
+                          playToggleSound();
+                        }}
+                      >
                         <div className="trending-card-top">
                           <img src={dish.imageUrl} alt={dish.name} className="trending-thumb" loading="lazy" />
                           <div className="trending-info">
@@ -818,7 +1002,7 @@ export function App() {
                           </div>
                         </div>
 
-                        <div className="trending-card-bottom">
+                        <div className="trending-card-bottom" onClick={(e) => e.stopPropagation()}>
                           <span style={{ fontSize: '0.82rem', color: '#fbbf24', fontWeight: 800 }}>
                             ★ {dish.rating} ({dish.votes})
                           </span>
@@ -859,6 +1043,7 @@ export function App() {
                   className="back-to-kitchens-btn"
                   onClick={() => {
                     setActiveView('home');
+                    playToggleSound();
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
                 >
@@ -901,7 +1086,10 @@ export function App() {
                         borderRadius: 'var(--radius-pill)',
                         padding: '0.45rem 1.15rem'
                       }}
-                      onClick={() => setSelectedCategory(cat)}
+                      onClick={() => {
+                        setSelectedCategory(cat);
+                        playToggleSound();
+                      }}
                     >
                       {cat === 'All' ? '🌟 All Dishes' : cat}
                     </button>
@@ -918,7 +1106,14 @@ export function App() {
                     {filteredDishes.map((item) => {
                       const inCart = cart[item.id]?.quantity || 0;
                       return (
-                        <article key={item.id} className="bento-dish-card">
+                        <article
+                          key={item.id}
+                          className="bento-dish-card"
+                          onClick={() => {
+                            setCustomizingItem(item);
+                            playToggleSound();
+                          }}
+                        >
                           <div className="dish-main-row">
                             <div className="dish-info-left">
                               <div>
@@ -942,7 +1137,7 @@ export function App() {
                             </div>
                           </div>
 
-                          <div className="dish-card-actions">
+                          <div className="dish-card-actions" onClick={(e) => e.stopPropagation()}>
                             <span className="dish-rating-text">
                               ★ {item.rating} ({item.votes})
                             </span>
@@ -976,6 +1171,226 @@ export function App() {
             </div>
           )}
         </>
+      )}
+
+      {/* =========================================================================
+         DISH DETAIL & CUSTOMIZER MODAL
+         ========================================================================= */}
+      {customizingItem && (
+        <div className="modal-overlay" onClick={() => setCustomizingItem(null)}>
+          <div className="telemetry-modal" style={{ maxWidth: '540px' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ position: 'relative', width: '100%', height: '200px', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
+              <img src={customizingItem.imageUrl} alt={customizingItem.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, transparent 40%, #0d121f 100%)' }} />
+              <button
+                className="drawer-close-btn"
+                style={{ position: 'absolute', top: '12px', right: '12px', background: 'rgba(0,0,0,0.6)' }}
+                onClick={() => setCustomizingItem(null)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '0.4rem' }}>
+                <h3 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 900 }}>{customizingItem.name}</h3>
+                <span style={{ fontSize: '1.3rem', fontWeight: 900, color: '#ff8a50', fontFamily: 'var(--font-mono)' }}>
+                  {formatPaise(customizingItem.pricePaise)}
+                </span>
+              </div>
+              <p style={{ margin: '0 0 1rem 0', color: 'var(--text-secondary)', fontSize: '0.88rem', lineHeight: 1.5 }}>
+                {customizingItem.description}
+              </p>
+              <div style={{ display: 'flex', gap: '0.65rem' }}>
+                <span style={{ background: 'rgba(255,255,255,0.05)', padding: '0.25rem 0.65rem', borderRadius: 'var(--radius-pill)', fontSize: '0.75rem', color: '#94a3b8' }}>
+                  🔥 540 kcal
+                </span>
+                <span style={{ background: 'rgba(255,255,255,0.05)', padding: '0.25rem 0.65rem', borderRadius: 'var(--radius-pill)', fontSize: '0.75rem', color: '#94a3b8' }}>
+                  💪 24g Protein
+                </span>
+                <span style={{ background: 'rgba(255,255,255,0.05)', padding: '0.25rem 0.65rem', borderRadius: 'var(--radius-pill)', fontSize: '0.75rem', color: '#10b981' }}>
+                  🌱 100% Farm Fresh
+                </span>
+              </div>
+            </div>
+
+            {/* Spice Level Selector */}
+            <div>
+              <div className="cart-section-title">Chef Spice Calibration</div>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                {(['Mild', 'Classic', 'Fiery'] as const).map((spice) => (
+                  <button
+                    key={spice}
+                    className={`tip-pill-btn ${selectedSpice === spice ? 'active' : ''}`}
+                    onClick={() => {
+                      setSelectedSpice(spice);
+                      playToggleSound();
+                    }}
+                  >
+                    {spice === 'Mild' && '🌱 Mild'}
+                    {spice === 'Classic' && '🌶️ Classic Spice'}
+                    {spice === 'Fiery' && '🔥 Fiery Heat'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Add-ons */}
+            <div>
+              <div className="cart-section-title">Artisan Accents & Add-ons</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {[
+                  { id: 'truffle', name: 'White Truffle Oil Drizzle', price: '+₹60' },
+                  { id: 'burrata', name: 'Artisanal Burrata Melt', price: '+₹80' },
+                  { id: 'garlic', name: 'Crispy Garlic Podi Crunch', price: '+₹30' }
+                ].map((addon) => {
+                  const active = selectedAddons.includes(addon.id);
+                  return (
+                    <div
+                      key={addon.id}
+                      className={`payment-option-card ${active ? 'active' : ''}`}
+                      onClick={() => {
+                        setSelectedAddons((prev) =>
+                          active ? prev.filter((x) => x !== addon.id) : [...prev, addon.id]
+                        );
+                        playAddSound();
+                      }}
+                    >
+                      <input type="checkbox" checked={active} onChange={() => {}} style={{ accentColor: 'var(--color-ember)' }} />
+                      <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                        <span>{addon.name}</span>
+                        <span style={{ color: '#ff8a50', fontFamily: 'var(--font-mono)' }}>{addon.price}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <button
+              className="checkout-btn"
+              onClick={() => {
+                addToCart(customizingItem, selectedRestaurant || undefined);
+                setCustomizingItem(null);
+                setSelectedAddons([]);
+              }}
+            >
+              Add To Basket • {formatPaise(customizingItem.pricePaise)}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+         AI CONCIERGE & SOMMELIER MODAL
+         ========================================================================= */}
+      {isAiModalOpen && (
+        <div className="modal-overlay" onClick={() => setIsAiModalOpen(false)}>
+          <div className="ai-modal-box" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <h3>✨ Tuckin AI Culinary Concierge</h3>
+                <span style={{ fontSize: '0.85rem', color: '#c084fc' }}>
+                  Taste-calibrated tasting flights optimized for your current vibe
+                </span>
+              </div>
+              <button className="drawer-close-btn" onClick={() => setIsAiModalOpen(false)}>
+                ✕
+              </button>
+            </div>
+
+            <div className="ai-vibe-grid">
+              {AI_VIBES.map((vibe) => (
+                <div
+                  key={vibe.id}
+                  className="ai-vibe-card"
+                  onClick={() => addAiBundleToCart(vibe.itemIds)}
+                >
+                  <div style={{ fontSize: '1.8rem', marginBottom: '0.35rem' }}>{vibe.icon}</div>
+                  <div className="ai-vibe-title">{vibe.title}</div>
+                  <div className="ai-vibe-desc">{vibe.desc}</div>
+                  <div style={{ marginTop: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: '#34d399', fontSize: '0.75rem', fontWeight: 800 }}>
+                      ⚡ Save ₹{vibe.discountPaise / 100}
+                    </span>
+                    <span style={{ color: 'var(--color-violet)', fontSize: '0.78rem', fontWeight: 800 }}>
+                      Add Flight →
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+         RADAR LIVE MAP MODAL
+         ========================================================================= */}
+      {isRadarModalOpen && (
+        <div className="modal-overlay" onClick={() => setIsRadarModalOpen(false)}>
+          <div className="telemetry-modal" style={{ maxWidth: '680px' }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <h3>📡 Bengaluru Live Dispatch Radar</h3>
+                <span style={{ fontSize: '0.82rem', color: '#94a3b8' }}>
+                  Real-time GPS telemetry from active couriers and cloud kitchen nodes
+                </span>
+              </div>
+              <button className="drawer-close-btn" onClick={() => setIsRadarModalOpen(false)}>
+                ✕
+              </button>
+            </div>
+
+            {/* Simulated Live Radar Grid */}
+            <div style={{ position: 'relative', width: '100%', height: '260px', background: '#070b14', borderRadius: 'var(--radius-md)', border: '1px solid rgba(56, 189, 248, 0.3)', overflow: 'hidden' }}>
+              {/* Radar Grid Circles */}
+              <div style={{ position: 'absolute', top: '50%', left: '50%', width: '120px', height: '120px', transform: 'translate(-50%, -50%)', border: '1px solid rgba(56, 189, 248, 0.2)', borderRadius: '50%' }} />
+              <div style={{ position: 'absolute', top: '50%', left: '50%', width: '220px', height: '220px', transform: 'translate(-50%, -50%)', border: '1px solid rgba(56, 189, 248, 0.15)', borderRadius: '50%' }} />
+              
+              {/* Kitchen Hub Markers */}
+              <div style={{ position: 'absolute', top: '45%', left: '48%', transform: 'translate(-50%, -50%)', textAlign: 'center' }}>
+                <span className="radar-dot" />
+                <div style={{ fontSize: '0.72rem', color: '#ff8a50', fontWeight: 800 }}>Indiranagar Hub</div>
+              </div>
+
+              <div style={{ position: 'absolute', top: '75%', left: '35%', transform: 'translate(-50%, -50%)', textAlign: 'center' }}>
+                <span className="radar-dot" style={{ background: '#38bdf8' }} />
+                <div style={{ fontSize: '0.72rem', color: '#38bdf8', fontWeight: 800 }}>Koramangala Hub</div>
+              </div>
+
+              {/* Moving Courier Markers */}
+              <div style={{ position: 'absolute', top: '35%', left: '60%', transform: 'translate(-50%, -50%)', animation: 'radarPulse 3s infinite' }}>
+                <span style={{ fontSize: '1.2rem' }}>🛵</span>
+                <span style={{ fontSize: '0.65rem', background: 'rgba(0,0,0,0.8)', padding: '0.1rem 0.3rem', borderRadius: '3px', color: '#34d399' }}>
+                  KA-9482 (38km/h)
+                </span>
+              </div>
+
+              <div style={{ position: 'absolute', top: '60%', left: '70%', transform: 'translate(-50%, -50%)' }}>
+                <span style={{ fontSize: '1.2rem' }}>🛵</span>
+                <span style={{ fontSize: '0.65rem', background: 'rgba(0,0,0,0.8)', padding: '0.1rem 0.3rem', borderRadius: '3px', color: '#fbbf24' }}>
+                  KA-5120 (42km/h)
+                </span>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', textAlign: 'center' }}>
+              <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.75rem', borderRadius: 'var(--radius-sm)' }}>
+                <div style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--text-white)' }}>8 Couriers</div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>In Transit</div>
+              </div>
+              <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.75rem', borderRadius: 'var(--radius-sm)' }}>
+                <div style={{ fontSize: '1.2rem', fontWeight: 900, color: '#10b981' }}>68.4°C</div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Avg Bag Temp</div>
+              </div>
+              <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.75rem', borderRadius: 'var(--radius-sm)' }}>
+                <div style={{ fontSize: '1.2rem', fontWeight: 900, color: '#38bdf8' }}>100% EV</div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Ather Fleet</div>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* =========================================================================
@@ -1065,6 +1480,7 @@ export function App() {
                           }}
                           onClick={() => {
                             setAppliedCoupon('TUCKIN50');
+                            playSuccessSound();
                             showToast('🎉 TUCKIN50 applied! ₹100 saved.');
                           }}
                         >
@@ -1083,7 +1499,10 @@ export function App() {
                           key={inst}
                           className={`tip-pill-btn ${deliveryInstruction === inst ? 'active' : ''}`}
                           style={{ flex: 'none', padding: '0.4rem 0.85rem' }}
-                          onClick={() => setDeliveryInstruction(inst)}
+                          onClick={() => {
+                            setDeliveryInstruction(inst);
+                            playToggleSound();
+                          }}
                         >
                           {inst}
                         </button>
@@ -1105,7 +1524,10 @@ export function App() {
                         <button
                           key={tip.paise}
                           className={`tip-pill-btn ${selectedTipPaise === tip.paise ? 'active' : ''}`}
-                          onClick={() => setSelectedTipPaise(tip.paise)}
+                          onClick={() => {
+                            setSelectedTipPaise(tip.paise);
+                            playToggleSound();
+                          }}
                         >
                           {tip.label}
                         </button>
@@ -1125,7 +1547,10 @@ export function App() {
                         <div
                           key={method.id}
                           className={`payment-option-card ${paymentMethod === method.id ? 'active' : ''}`}
-                          onClick={() => setPaymentMethod(method.id as 'upi' | 'card' | 'cod')}
+                          onClick={() => {
+                            setPaymentMethod(method.id as 'upi' | 'card' | 'cod');
+                            playToggleSound();
+                          }}
                         >
                           <input
                             type="radio"
@@ -1151,7 +1576,7 @@ export function App() {
                     </div>
                     {discountPaise > 0 && (
                       <div className="bill-row discount-row">
-                        <span>Coupon Discount ({appliedCoupon})</span>
+                        <span>Coupon & VIP Discount</span>
                         <span>-{formatPaise(discountPaise)}</span>
                       </div>
                     )}
@@ -1166,7 +1591,7 @@ export function App() {
                     </div>
                     <div className="bill-row">
                       <span>Platform & Hygienic Packaging</span>
-                      <span>₹15.00</span>
+                      <span>{isVipBlack ? '₹0.00 (VIP Free)' : '₹15.00'}</span>
                     </div>
                     {selectedTipPaise > 0 && (
                       <div className="bill-row">
@@ -1176,7 +1601,7 @@ export function App() {
                     )}
                     <div className="bill-row total-row">
                       <span>Grand Total</span>
-                      <span style={{ color: '#ff5722' }}>{formatPaise(grandTotalPaise)}</span>
+                      <span style={{ color: isVipBlack ? '#ffd166' : '#ff5722' }}>{formatPaise(grandTotalPaise)}</span>
                     </div>
                   </div>
                 </>
@@ -1221,35 +1646,38 @@ export function App() {
               </button>
             </div>
 
-            <div className="hub-options-list">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               {HUBS.map((hub) => (
                 <div
                   key={hub.id}
-                  className={`hub-option-card ${currentHub.id === hub.id ? 'active' : ''}`}
+                  className={`payment-option-card ${currentHub.id === hub.id ? 'active' : ''}`}
                   onClick={() => {
                     setCurrentHub(hub);
                     setIsHubModalOpen(false);
+                    playToggleSound();
                     showToast(`Switched hub to ${hub.name}`);
                   }}
                 >
-                  <div>
-                    <h5 style={{ margin: '0 0 0.2rem 0', fontSize: '1rem', fontWeight: 800 }}>{hub.name}</h5>
-                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                      Avg Dispatch: {hub.avgTime} • {hub.zone}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+                    <div>
+                      <h5 style={{ margin: '0 0 0.2rem 0', fontSize: '1rem', fontWeight: 800 }}>{hub.name}</h5>
+                      <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                        Avg Dispatch: {hub.avgTime} • {hub.zone}
+                      </span>
+                    </div>
+                    <span
+                      style={{
+                        background: currentHub.id === hub.id ? 'var(--color-ember)' : 'rgba(255, 255, 255, 0.06)',
+                        color: 'white',
+                        fontSize: '0.75rem',
+                        fontWeight: 800,
+                        padding: '0.25rem 0.65rem',
+                        borderRadius: 'var(--radius-pill)'
+                      }}
+                    >
+                      {hub.tag}
                     </span>
                   </div>
-                  <span
-                    style={{
-                      background: currentHub.id === hub.id ? 'var(--color-ember)' : 'rgba(255, 255, 255, 0.06)',
-                      color: 'white',
-                      fontSize: '0.75rem',
-                      fontWeight: 800,
-                      padding: '0.25rem 0.65rem',
-                      borderRadius: 'var(--radius-pill)'
-                    }}
-                  >
-                    {hub.tag}
-                  </span>
                 </div>
               ))}
             </div>
